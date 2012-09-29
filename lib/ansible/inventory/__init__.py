@@ -26,6 +26,7 @@ from ansible.inventory.ini import InventoryParser
 from ansible.inventory.script import InventoryScript
 from ansible.inventory.group import Group
 from ansible.inventory.host import Host
+from ansible.inventory.expand_hosts import expand_hostname_range
 from ansible import errors
 from ansible import utils
 
@@ -137,59 +138,12 @@ class Inventory(object):
         take into account negative matches.
         """
 
-        by_pattern = {}
-        for p in patterns:
-            (name, enumeration_details) = self._enumeration_info(p)
-            hpat = self._hosts_in_unenumerated_pattern(name)
-            hpat = sorted(hpat, key=lambda x: x.name)
-            by_pattern[p] = hpat
-
-        ranged = {}
-        for (pat, hosts) in by_pattern.iteritems():
-            ranged[pat] = self._apply_ranges(pat, hosts)
-
         results = []
-        for (pat, hosts) in ranged.iteritems():
-            results.extend(hosts)
+        for p in patterns:
+            for ep in expand_hostname_range(p):
+                results.extend(self._hosts_in_unenumerated_pattern(ep))
 
         return list(set(results))
-
-    def _enumeration_info(self, pattern):
-        """
-        returns (pattern, limits) taking a regular pattern and finding out
-        which parts of it correspond to start/stop offsets.  limits is
-        a tuple of (start, stop) or None
-        """
-
-        if not "[" in pattern:
-            return (pattern, None)
-        (first, rest) = pattern.split("[")
-        rest = rest.replace("]","")
-        if not "-" in rest:
-            raise errors.AnsibleError("invalid pattern: %s" % pattern)
-        (left, right) = rest.split("-",1)
-        return (first, (left, right))
-
-    def _apply_ranges(self, pat, hosts):
-        """
-        given a pattern like foo, that matches hosts, return all of hosts
-        given a pattern like foo[0:5], where foo matches hosts, return the first 6 hosts
-        """ 
-
-        (loose_pattern, limits) = self._enumeration_info(pat)
-        if not limits:
-            return hosts
-
-        (left, right) = limits
-        enumerated = enumerate(hosts)
-        if left == '':
-            left = 0
-        if right == '':
-            right = 0
-        left=int(left)
-        right=int(right)
-        enumerated = [ h for (i,h) in enumerated if i>=left and i<=right ]
-        return enumerated
 
     # TODO: cache this logic so if called a second time the result is not recalculated
     def _hosts_in_unenumerated_pattern(self, pattern):

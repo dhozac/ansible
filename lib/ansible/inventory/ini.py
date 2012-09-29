@@ -20,7 +20,6 @@
 import ansible.constants as C
 from ansible.inventory.host import Host
 from ansible.inventory.group import Group
-from ansible.inventory.expand_hosts import detect_range
 from ansible.inventory.expand_hosts import expand_hostname_range
 from ansible import errors
 import shlex
@@ -96,15 +95,10 @@ class InventoryParser(object):
                     host = self.hosts[hostname]
                     _all_hosts.append(host)
                 else:
-                    if detect_range(hostname):
-                        _hosts = expand_hostname_range(hostname)
-                        for _ in _hosts:
-                            host = Host(name=_, port=port)
-                            self.hosts[_] = host
-                            _all_hosts.append(host)
-                    else:
-                        host = Host(name=hostname, port=port)
-                        self.hosts[hostname] = host
+                    _hosts = expand_hostname_range(hostname)
+                    for _ in _hosts:
+                        host = Host(name=_, port=port)
+                        self.hosts[_] = host
                         _all_hosts.append(host)
                 if len(tokens) > 1:
                     for t in tokens[1:]:
